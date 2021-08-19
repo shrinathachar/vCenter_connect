@@ -1,0 +1,57 @@
+---
+- name: Build a VM from the Template.
+  gather_facts: no
+  hosts: pvislpssh001.dc.ccep.com
+  connection: local
+  vars:
+    vcsa_username: "{{ lookup('env', 'VMWARE_USER') }}"
+    vcsa_password: "{{ lookup('env', 'VMWARE_PASSWORD') }}"
+    vm_portgroup: "{{ 'vxw-dvs-22-universalwire-4-sid-20003-PRIVATE CLOUD QA' if vm_tier  == 'quality' else 'vxw-dvs-22-universalwire-2-sid-20001-PRIVATE CLOUD PROD' if vm_tier  == 'production' else 'vxw-dvs-22-universalwire-3-sid-20002-PRIVATE CLOUD DEV' }}"
+    vm_datastore: "LON06-PC-DS-CLUSTER-{{ vm_storagetier }}"    
+    vm_template: "{{ 'windows_server_2019_template' if vm_os  == 'Windows Server 2019 STD' else 'windows_server_2016_template' if vm_os  == 'Windows Server 2016 STD' else 'windows_server_2012r2_template' }}"
+  tasks:  
+    - name: Clone the template
+      vmware_guest:
+        hostname: 10.72.160.130
+        username: "{{ vcsa_username }}"
+        password: "{{ vcsa_password }}"
+        validate_certs: False
+        name: "{{ vm_name }}"
+        template: "{{vm_template}}"
+        datastore: "{{vm_datastore}}"
+        hardware:
+          memory_mb: "{{ vm_memory * 1024 }}"
+          num_cpus: "{{ vm_cpu }}"
+          hotadd_cpu: True
+          hotadd_memory: True  
+        customization:
+          hostname: "{{vm_name}}"
+          password: 'P@ssw0rd'
+          autologon: yes 
+          runonce:
+            - powershell.exe -ExecutionPolicy Unrestricted -File C:\tools\tools.ps1 -ForceNewSSLCert -EnableCredSSP        
+        networks:
+        - name: 'Virtual Machine nic01'
+          ip: "{{vm_ipaddress }}"
+          netmask: "{{vm_subnetmask}}"
+          gateway: "{{vm_gateway}}"
+          name: "{{vm_portgroup}}"
+          start_connected: yes
+        datacenter: datacenter1
+        cluster: cluster1
+        folder: /datacenter1/vm
+        state: poweredon   
+        wait_for_ip_address: yes          
+        wait_for_customization: no
+      register: deploy
+   
+    - name: Wait for system to reachable via Winrm
+      wait_for:
+        port: 5985
+        host: "{{vm_ipaddress }}" 
+        timeout: 600
+        
+       
+
+         
+                    
