@@ -1,7 +1,7 @@
 ---
 - name: Build a VM from the Template.
   gather_facts: no
-  hosts: pvislpssh001.dc.ccep.com
+  hosts: ansible_control_node
   connection: local
   vars:
     vcsa_username: "{{ lookup('env', 'VMWARE_USER') }}"
